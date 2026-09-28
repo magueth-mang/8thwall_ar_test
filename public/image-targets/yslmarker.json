@@ -1,0 +1,23 @@
+{
+  "imagePath": "/image-targets/yslmarker_luminance.png",
+  "metadata": null,
+  "name": "yslmarker",
+  "type": "PLANAR",
+  "properties": {
+    "left": 122,
+    "top": 0,
+    "width": 837,
+    "height": 1116,
+    "isRotated": false,
+    "originalWidth": 1080,
+    "originalHeight": 1116
+  },
+  "resources": {
+    "originalImage": "yslmarker_original.png",
+    "croppedImage": "yslmarker_cropped.png",
+    "thumbnailImage": "yslmarker_thumbnail.png",
+    "luminanceImage": "yslmarker_luminance.png"
+  },
+  "created": 1790349548434,
+  "updated": 1790349548434
+}

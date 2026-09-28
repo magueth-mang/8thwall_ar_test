@@ -1,0 +1,32 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+certificates/
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# env
+.env*.local
+
+# vercel
+.vercel
+
+# Skybox : sources 16K trop lourdes (on garde space_4k.jpg généré)
+public/skybox/*.exr
+public/skybox/*.hdr
+public/skybox/*16k*.jpg
