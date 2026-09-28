@@ -12,16 +12,16 @@ import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min.js'
 // ------- Matériaux (ajustables) --------------------------------------------
 const MAT = {
   // valeurs calées par le client via le menu /gloss
-  cap: { color: 0xe8c5bf, metalness: 1.0, roughness: 0.0, clearcoat: 0.0, envMapIntensity: 1.0 },
+  cap: { color: 0xf2a9a1, metalness: 0.86, roughness: 0.06, clearcoat: 0.0, envMapIntensity: 1.0 },
   cassandre: { color: 0xe8eaef, metalness: 1.0, roughness: 0.06, clearcoat: 0.0, envMapIntensity: 1.1 },
-  bottleMatte: { color: 0xe8c5bf, metalness: 0.47, roughness: 0.48, clearcoat: 0.15, envMapIntensity: 0.2 },
-  bottleGlossy: { color: 0xe8c5bf, metalness: 0.47, roughness: 0.48, clearcoat: 0.15, envMapIntensity: 0.2 },
+  bottleMatte: { color: 0xf2a9a1, metalness: 0.4, roughness: 0.32, clearcoat: 1.0, envMapIntensity: 0.0 },
+  bottleGlossy: { color: 0xf2a9a1, metalness: 0.47, roughness: 0.48, clearcoat: 0.15, envMapIntensity: 0.2 },
   balm: { color: 0xdcb49c, metalness: 0.0, roughness: 0.3, clearcoat: 0.7, clearcoatRoughness: 0.12, envMapIntensity: 1.0 },
   // corps du bâtonnet (LNB_Balm) : rose chromé
-  bullet: { color: 0xe8c5bf, metalness: 1.0, roughness: 0.0, clearcoat: 0.1, envMapIntensity: 1.0 },
+  bullet: { color: 0xf2a9a1, metalness: 1.0, roughness: 0.0, clearcoat: 0.0, envMapIntensity: 1.0 },
   // "Bout argenté du bâtonnet" (LBN_Bottle_interior) : la SEULE partie qui monte/tourne
   ring: { color: 0x582c2c, metalness: 0.0, roughness: 0.38, clearcoat: 0.0, envMapIntensity: 0.0 },
-  capInterior: { color: 0x0b0b0b, metalness: 0.2, roughness: 0.35, envMapIntensity: 1.2 },
+  capInterior: { color: 0x0b0b0b, metalness: 0.2, roughness: 0.35, clearcoat: 0.0, envMapIntensity: 1.2 },
   bottleInterior: { color: 0x2a1418, metalness: 0.0, roughness: 0.6 },
 }
 const CFG = {
@@ -57,7 +57,7 @@ export default function GlossPreview() {
     // que je change. NeutralToneMapping (Khronos, pour la viz produit) préserve
     // la teinte et la saturation.
     renderer.toneMapping = THREE.NeutralToneMapping
-    renderer.toneMappingExposure = 1.0
+    renderer.toneMappingExposure = 0.88
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     mount.appendChild(renderer.domElement)
@@ -70,13 +70,13 @@ export default function GlossPreview() {
     // ?env=<nom> pour tester : photo_studio_01 / studio_small_08 / studio_small_09 / brown_photostudio_02
     const pmrem = new THREE.PMREMGenerator(renderer)
     let envName = 'photo_studio_01'
-    let envRot = 1.2
+    let envRot = 0
     try {
       const q = new URLSearchParams(window.location.search)
       if (q.get('env')) envName = q.get('env')
       if (q.get('rot')) envRot = parseFloat(q.get('rot'))
     } catch {}
-    scene.environmentIntensity = 1.0
+    scene.environmentIntensity = 1.68
     let envTex = null
     const loadEnv = (name) => {
       new RGBELoader().load(`/hdr/${name}.hdr`, (hdr) => {

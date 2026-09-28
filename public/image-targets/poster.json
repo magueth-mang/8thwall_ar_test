@@ -1,0 +1,23 @@
+{
+  "imagePath": "/image-targets/poster_luminance.png",
+  "metadata": null,
+  "name": "poster",
+  "type": "PLANAR",
+  "properties": {
+    "left": 0,
+    "top": 208,
+    "width": 941,
+    "height": 1255,
+    "isRotated": true,
+    "originalWidth": 941,
+    "originalHeight": 1671
+  },
+  "resources": {
+    "originalImage": "poster_original.png",
+    "croppedImage": "poster_cropped.png",
+    "thumbnailImage": "poster_thumbnail.png",
+    "luminanceImage": "poster_luminance.png"
+  },
+  "created": 1790590505047,
+  "updated": 1790590505047
+}
