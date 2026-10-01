@@ -1,0 +1,22 @@
+{
+ "K": 0.3002661401098901,
+ "X_OFF": 0.005859375,
+ "Z_OFF": -0.5323660714285714,
+ "veg": false,
+ "marker": {
+  "w": 1792,
+  "h": 2400,
+  "aspect": 1.3392857142857142
+ },
+ "garden_to_marker": "three: p_marker = (x*K + X_OFF, y*K + Z_OFF, z*K) avec (x, y, z) rep\u00e8re jardin three.js en m\u00e8tres",
+ "door": {
+  "tris": {
+   "Door_L": 5994,
+   "Door_R": 5351
+  },
+  "tex": [
+   746,
+   1415
+  ]
+ }
+}

@@ -1,0 +1,23 @@
+{
+  "imagePath": "/image-targets/door_luminance.png",
+  "metadata": null,
+  "name": "door",
+  "type": "PLANAR",
+  "properties": {
+    "left": 0,
+    "top": 65,
+    "width": 1039,
+    "height": 1385,
+    "isRotated": true,
+    "originalWidth": 1039,
+    "originalHeight": 1514
+  },
+  "resources": {
+    "originalImage": "door_original.png",
+    "croppedImage": "door_cropped.png",
+    "thumbnailImage": "door_thumbnail.png",
+    "luminanceImage": "door_luminance.png"
+  },
+  "created": 1790853208380,
+  "updated": 1790853208380
+}
