@@ -7,7 +7,7 @@ const GOLD = '#C9A45C', CREAM = '#EFE9DC'
 const SERIF = "'Didot', 'Bodoni MT', 'Playfair Display', Georgia, serif"
 const CINEMATIC = new Set(['intro', 'exiting', 'returning'])
 
-export function PortalOverlay({ view, status, onReplay, bottomOffset = 0, children }) {
+export function PortalOverlay({ view, status, onReplay, bottomOffset = 0, title = 'Le Salon Secret', children }) {
   const cine = CINEMATIC.has(view.state)
   const bar = (top) => ({
     position: 'absolute', left: 0, right: 0, [top ? 'top' : 'bottom']: 0, height: '11vh', background: '#000',
@@ -19,7 +19,7 @@ export function PortalOverlay({ view, status, onReplay, bottomOffset = 0, childr
       <div style={bar(false)} />
       <div style={{ position: 'absolute', top: 'calc(env(safe-area-inset-top,0px) + 18px)', left: 0, right: 0, textAlign: 'center', opacity: cine ? 0 : 1, transition: 'opacity .6s' }}>
         <div style={{ fontFamily: SERIF, fontSize: 11, letterSpacing: '0.42em', paddingLeft: '0.42em', color: GOLD }}>YVES SAINT LAURENT</div>
-        <div style={{ fontFamily: SERIF, fontSize: 18, color: CREAM, marginTop: 6, fontStyle: 'italic' }}>Le Salon Secret</div>
+        <div style={{ fontFamily: SERIF, fontSize: 18, color: CREAM, marginTop: 6, fontStyle: 'italic' }}>{title}</div>
       </div>
       <div style={{
         position: 'absolute', left: 0, right: 0, bottom: `calc(env(safe-area-inset-bottom,0px) + ${34 + bottomOffset}px)`, textAlign: 'center',

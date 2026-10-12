@@ -1,0 +1,185 @@
+{
+ "version": 1,
+ "generator": "YSL_AR_Portal_Majorelle/blender/perfume_textures.py (WP2)",
+ "convention": "Every image is authored UPRIGHT (row 0 = top). All UVs below are v-up (v = 0 at the image bottom), the values the GLB stores (perfume_profile.py) and what shader-computed planar UVs produce. Load with THREE.TextureLoader and keep the default flipY = true.",
+ "files": {
+  "T_PB_glass.png": {
+   "size": [
+    1024,
+    1024
+   ],
+   "colorSpace": "NoColorSpace (data)",
+   "uv": "glass/juice UV0: u=(x+0.035)/0.070, v=y/0.090 (m)",
+   "R": "satin band: 1 for inset distance in [0.45, 1.15] cm from the truncated arch outline (no neck)",
+   "G": "dry-time: 0.65(1-v) - 0.3·halo(stud, r 0.45 cm) + noise ±0.05, clamped [0,1] (low = dries first)",
+   "B": "cavity behind: 1 inside the cavity contour (inset 0.50, floor 1.20, top 8.25, corners r 0.40)",
+   "A": "facet band: 1 for inset < 0.45 cm (the 40° table facet) and everywhere outside the silhouette",
+   "note": "RGB carries data where A = 0: upload un-premultiplied (TextureLoader / ImageBitmap premultiplyAlpha \"none\"), never through a 2D canvas.",
+   "antiAliased": "1 texel",
+   "studs": "perfume_meta.json studs if present, else perfume_profile.stud_positions()"
+  },
+  "T_PB_rosette.png": {
+   "size": [
+    512,
+    512
+   ],
+   "colorSpace": "NoColorSpace (data)",
+   "format": "grey 8-bit",
+   "uv": "same planar frame as glass UV0 (u=(x+0.035)/0.070, v=y/0.090): sample at the planar UV of the exit point",
+   "content": "12-point girih rosette Ø3.6 cm centred (0, 4.6) cm, etched lines 0.06 cm (1 = etched)"
+  },
+  "T_PB_gold_n.png": {
+   "size": [
+    1024,
+    1024
+   ],
+   "colorSpace": "NoColorSpace (data)",
+   "normalSpace": "tangent, OpenGL (+G = +v up), as three.js expects",
+   "atlas": {
+    "boss": [
+     0.0,
+     0.0,
+     0.5,
+     0.5
+    ],
+    "capTop": [
+     0.5,
+     0.0,
+     1.0,
+     0.5
+    ],
+    "capSides": [
+     0.0,
+     0.5,
+     1.0,
+     0.75
+    ],
+    "studs": [
+     0.0,
+     0.75,
+     0.25,
+     1.0
+    ],
+    "flat": [
+     0.5,
+     0.75,
+     0.75,
+     1.0
+    ]
+   },
+   "boss": "Cassandre monogram from public/lovenude.glb LNB_Cassandre (cylindrical unwrap → ortho height → normal), raised polished relief, height = 0.78 × boss Ø; disc Ø1.20 fills the tile",
+   "capTop": "brushed sunburst on the table + 40° bevel (octagon half-flat ≤ 1.150 cm), polished chamfer; tile spans ±1.5153 cm",
+   "capSides": "engraved border line (V groove 0.035 cm, inset 0.12 cm, corner r 0.06) in each facet tile; facet 1.160 × 2.598 cm (perfume_profile.CAP_FACET_TOP - CAP_Y0)",
+   "studs": "hammered nail-head (overlapping dimples), unit dome disc fills the tile",
+   "flat": "flat (0.5, 0.5, 1)"
+  },
+  "T_PB_petals.png": {
+   "size": [
+    1024,
+    512
+   ],
+   "colorSpace": "SRGBColorSpace",
+   "alpha": "straight; shape coverage (alphaTest 0.4 friendly), RGB extended under alpha 0",
+   "layout": {
+    "neroli": [
+     0.0,
+     0.0,
+     0.375,
+     1.0
+    ],
+    "nymphea": [
+     0.375,
+     0.0,
+     0.75,
+     1.0
+    ],
+    "stamenFringe": [
+     0.75,
+     0.5,
+     1.0,
+     1.0
+    ],
+    "neroliHeart": [
+     0.75,
+     0.0,
+     1.0,
+     0.5
+    ]
+   },
+   "petalFrame": "petals are centred on their cell u-centre, base at v = 0.04, tip at v = 0.96 of the cell; petal half-width ≤ 0.23 (néroli) / 0.155 (nymphéa) × petal length",
+   "colours": {
+    "neroli": "waxy white #F9F6ED, yellow-green base #CCDB8C, faint translucent veins",
+    "nymphea": "base #EAF0FF → tip #5A7BFF, fine deeper-blue veins, pale midrib",
+    "stamens": "#E8B84A filaments, #FAD66B anthers; néroli heart: green pistil, white filaments, yellow anthers"
+   }
+  },
+  "T_PB_sillage.png": {
+   "size": [
+    512,
+    512
+   ],
+   "colorSpace": "SRGBColorSpace",
+   "alpha": "straight; alpha = intensity/coverage, 0 at every tile border",
+   "layout": {
+    "puff": [
+     0.0,
+     0.5,
+     0.5,
+     1.0
+    ],
+    "sparkle": [
+     0.5,
+     0.5,
+     1.0,
+     1.0
+    ],
+    "petal": [
+     0.0,
+     0.0,
+     0.5,
+     0.5
+    ],
+    "ember": [
+     0.5,
+     0.0,
+     1.0,
+     0.5
+    ]
+   },
+   "pointCoordNote": "gl_PointCoord has y down: tile (u0,v0,u1,v1) → uv = vec2(u0 + pc.x*(u1-u0), v1 - pc.y*(v1-v0))"
+  },
+  "T_PB_drops_n.png": {
+   "size": [
+    256,
+    256
+   ],
+   "colorSpace": "NoColorSpace (data)",
+   "normalSpace": "tangent, OpenGL",
+   "tileable": true,
+   "priority": "P2"
+  },
+  "backdrop_poster_512.jpg": {
+   "size": [
+    512,
+    686
+   ],
+   "colorSpace": "SRGBColorSpace",
+   "uv": "(H.x + 0.5, H.y / 1.3393 + 0.5) on the marker plane"
+  },
+  "door_mask_256.png": {
+   "size": [
+    256,
+    343
+   ],
+   "colorSpace": "NoColorSpace (data)",
+   "format": "grey 8-bit, anti-aliased",
+   "content": "1 inside the door hole (identical to Portal_Occluder in mj_door.glb), same UV as the poster"
+  },
+  "door_arch_path.json": {
+   "units": "marker",
+   "z": 0.006,
+   "points": "96 × [x, y], printed arch, left springing → apex → right springing",
+   "full": "256 × [x, y], the door hole outline"
+  }
+ }
+}

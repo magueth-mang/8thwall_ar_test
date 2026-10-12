@@ -1,0 +1,52 @@
+{
+ "K": 0.3002661401098901,
+ "X_OFF": 0.005859375,
+ "Z_OFF": -0.5323660714285714,
+ "LM_SCALE": 4.5,
+ "lightmaps": {
+  "FLOOR": "T_MJ_FLOOR_LM_test.jpg",
+  "WALLS": "T_MJ_WALLS_LM_test.jpg",
+  "PROPS": "T_MJ_PROPS_LM_test.jpg",
+  "VEG": "T_MJ_VEG_LM_test.jpg",
+  "FOLIAGE": "T_MJ_FOLIAGE_LM_test.jpg"
+ },
+ "vertexLit": {},
+ "tris": {
+  "FLOOR": 110,
+  "WALLS": 4691,
+  "PROPS": 1914,
+  "VEG": 18916,
+  "FOLIAGE": 17159
+ },
+ "tris_total": 42790,
+ "door": {
+  "tris": {
+   "Door_L": 5808,
+   "Door_R": 4467
+  },
+  "tex": [
+   746,
+   1415
+  ]
+ },
+ "glb_kb": 4844,
+ "sun": {
+  "dir": [
+   -0.7364,
+   0.2756,
+   0.6179
+  ],
+  "color": "#ffb86d",
+  "azimuthDeg": 50.0,
+  "elevationDeg": 16.0,
+  "kelvin": 3000.0
+ },
+ "sky": {
+  "zenith": "#6a7fd0",
+  "horizon": "#fbcf9f"
+ },
+ "heroLight": {
+  "sun": "#ffc890",
+  "sky": "#a7b2ee"
+ }
+}

@@ -9,6 +9,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { pickMajorelleInterior, applyMajorelleMaterials } from '@/lib/majorelle/interior'
 
 const BASE = '/majorelle'
 const CREAM = '#EFE9DC', GOLD = '#C9A45C'
@@ -60,10 +61,23 @@ export default function MajorelleTest() {
     anchor.add(marker)
 
     const loader = new GLTFLoader()
-    let mixer = null, action = null, clip = null
-    const fx = null
-    Promise.all([loader.loadAsync(`${BASE}/mj_preview.glb`), loader.loadAsync(`${BASE}/mj_door.glb`)]).then(async ([garden, door]) => {
+    let mixer = null, action = null, clip = null, fx = null
+
+    // Cour bakée (textures de détail × cartes de lumière) si disponible, sinon version de suivi brute
+    const pickInterior = async () => {
+      const p = await pickMajorelleInterior(BASE)
+      return p ? { meta: p.meta, glb: p.glbUrl } : { meta: null, glb: `${BASE}/mj_preview.glb` }
+    }
+
+    Promise.all([pickInterior(), loader.loadAsync(`${BASE}/mj_door.glb`)]).then(async ([pick, door]) => {
       if (disposed) return
+      const garden = await loader.loadAsync(pick.glb)
+      if (disposed) return
+      if (pick.meta) {
+        scene.remove(sun); anchor.remove(sun)
+        anchor.children.filter((c) => c.isHemisphereLight).forEach((c) => anchor.remove(c))
+        applyMajorelleMaterials(garden.scene, pick.meta, BASE)
+      }
       garden.scene.traverse((o) => {
         if (!o.isMesh) return
         if (o.name === 'Portal_Occluder') { o.material.colorWrite = false; o.renderOrder = -1 }
@@ -78,8 +92,28 @@ export default function MajorelleTest() {
       replayRef.current = () => { action.reset(); action.timeScale = 0.75; action.play() }
       setTimeout(() => !disposed && replayRef.current(), 900)
 
-      // eau vivante : branchée dès que lib/majorelle/gardenFx.js est livré
-      setStatus('Aperçu de développement · eau, plantes et textures en cours')
+      // eau vivante (koï, nénuphars, jet, reflets par sondes) dans le repère « jardin » en mètres
+      try {
+        const meta = pick.meta || (await fetch(`${BASE}/preview.json`).then((r) => r.json()))
+        const mod = await import('@/lib/majorelle/gardenFx')
+        const gardenRoot = new THREE.Group()
+        gardenRoot.position.set(meta.X_OFF, meta.Z_OFF, 0)
+        gardenRoot.scale.setScalar(meta.K)
+        anchor.add(gardenRoot)
+        let cube = null
+        try { cube = await mod.loadReflectionProbes(`${BASE}/fx/`) } catch {}
+        if (disposed) return
+        // sunDir = direction VERS le soleil, repère jardin three.js (publiée par le bake si présente)
+        const sd = Array.isArray(meta.sun?.dir) ? new THREE.Vector3(...meta.sun.dir) : new THREE.Vector3(-0.52, 0.76, 0.38)
+        fx = mod.createGardenFX({
+          parent: gardenRoot, sunDir: sd.normalize(), reflectionCube: cube,
+          ...(meta.sun?.color ? { sunColor: meta.sun.color } : {}), ...(meta.sky ? { sky: meta.sky } : {}),
+        })
+        setStatus(pick.meta ? 'Aperçu · lumière bakée + eau vivante' : 'Aperçu · eau vivante (lumière non bakée)')
+      } catch (e) {
+        console.warn('[majorelle] eau vivante indisponible', e)
+        setStatus('Aperçu de développement')
+      }
     }).catch((e) => { console.error(e); setStatus('Erreur de chargement') })
 
     const onResize = () => { renderer.setSize(mount.clientWidth, mount.clientHeight); camera.aspect = mount.clientWidth / mount.clientHeight; camera.updateProjectionMatrix() }
@@ -95,7 +129,9 @@ export default function MajorelleTest() {
       renderer.render(scene, camera)
     }
     tick()
-    window.__mj = { scene, camera, controls }
+    // debug : avance la scène à la main (onglet masqué = requestAnimationFrame suspendu)
+    const step = (dt = 1 / 30) => { if (mixer) mixer.update(dt); if (fx) fx.update(dt, camera); controls.update(); renderer.render(scene, camera) }
+    window.__mj = { scene, camera, controls, renderer, step, replay: () => replayRef.current?.() }
     return () => {
       disposed = true
       if (raf) cancelAnimationFrame(raf)

@@ -1,23 +1,32 @@
 'use client'
 
-// Banc d'essai de lib/majorelle/gardenFx.js : une cour Majorelle factice (sol en tomettes, bassin long,
-// bassin rond + vasque, murs bleus) rendue « unlit » comme la future scène bakée, + les effets.
-// Clic/tap sur l'eau = splash. Paramètres d'URL : ?view=porte|bassin|koi|fontaine&energy=0.8&q=high|medium|low&fov=50&ui=0
+// Banc d'essai de lib/majorelle/gardenFx.js : une cour Majorelle factice (sol en tomettes, bassin long
+// au fond bleu nuit, bassin rond + vasque au profil du build Blender, murs bleus) rendue « unlit »
+// comme la future scène bakée, + les effets. Les reflets de l'eau viennent des sondes cubemap bakées
+// dans Blender (public/majorelle/fx/probe_*.jpg, cf. blender/fx_bake_probes.py).
+// Clic/tap sur l'eau = splash.
+// Paramètres d'URL :
+//   ?view=porte|bassin|koi|fontaine|nenuphars|close  &energy=0.8  &q=high|medium|low  &fov=50  &ui=0
+//   &probe=1 (défaut, sondes Blender) | 0 (repli analytique) | live (capture runtime de la cour factice)
+//   &dpr=2 (force le device pixel ratio)   &bench=1 (mesure GPU du calque FX au démarrage)
 
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { createGardenFX } from '@/lib/majorelle/gardenFx'
+import { createGardenFX, loadReflectionProbes } from '@/lib/majorelle/gardenFx'
 
 const POOL = { x0: -0.8, x1: 0.8, z0: -6.3, z1: -1.7, waterY: 0, depth: 0.45 }
-const FOUNTAIN = { x: 0, z: -7.55, basinR: 0.92, waterY: 0.42, bowlY: 1.14, bowlR: 0.44, floorY: 0.12 }
+const FOUNTAIN = { x: 0, z: -7.55, basinR: 0.92, waterY: 0.42, bowlY: 1.14, bowlR: 0.44, floorY: 0.1 }
 const SUN = new THREE.Vector3(-0.5, 0.7071, -0.5).normalize()
+const TAU_ = Math.PI * 2
 
 const VIEWS = {
   porte: { pos: [0, 1.55, 0.9], target: [0, 0.15, -4.6] },
   bassin: { pos: [1.3, 1.15, -1.1], target: [0, -0.15, -3.7] },
   koi: { pos: [0.05, 2.2, -3.0], target: [0, -0.2, -3.95] },
   fontaine: { pos: [1.55, 1.45, -5.5], target: [0, 0.8, -7.55] },
+  nenuphars: { pos: [0.75, 0.6, -2.55], target: [0, -0.05, -3.9] },
+  close: { pos: [0.45, 0.5, -1.95], target: [-0.05, -0.05, -3.6] },
 }
 
 // ---------------------------------------------------------------- textures factices (canvas)
@@ -28,7 +37,7 @@ function canvasTexture(w, h, draw, repeat = [1, 1]) {
   t.colorSpace = THREE.SRGBColorSpace
   t.wrapS = t.wrapT = THREE.RepeatWrapping
   t.repeat.set(repeat[0], repeat[1])
-  t.anisotropy = 4
+  t.anisotropy = 8
   return t
 }
 function rnd(seed) { let s = seed; return () => { s = (s * 16807) % 2147483647; return s / 2147483647 } }
@@ -46,39 +55,44 @@ const floorTex = (rx, ry) => canvasTexture(512, 512, (g, w) => {
   }
 }, [rx, ry])
 
-// petits carreaux cobalt du fond du bassin
+// petits carreaux cobalt très sombres (bleu nuit, comme le concept) du fond des bassins
 const poolTex = (rx, ry, light = 1) => canvasTexture(256, 256, (g, w) => {
   const r = rnd(5)
-  g.fillStyle = '#081a44'; g.fillRect(0, 0, w, w)
+  g.fillStyle = '#040a1e'; g.fillRect(0, 0, w, w)
   const n = 16, s = w / n
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-    g.fillStyle = hsl(224 + r() * 8, 70 + r() * 15, (18 + r() * 8) * light)
+    g.fillStyle = hsl(224 + r() * 6, 62 + r() * 15, (11 + r() * 5) * light)
     g.fillRect(i * s + 1, j * s + 1, s - 2, s - 2)
   }
 }, [rx, ry])
 
-// zellige bleu/blanc (margelle, bassin rond)
+// frise zellige bleu/vert/blanc (un motif = 0,22 m de long, toute la largeur en v)
 const zelligeTex = (rx, ry) => canvasTexture(256, 64, (g, w, h) => {
   g.fillStyle = '#f2eee4'; g.fillRect(0, 0, w, h)
   const s = 32
   for (let i = 0; i < w / s; i++) {
     g.fillStyle = i % 2 ? '#2a48c6' : '#1e7a5a'
-    g.beginPath(); g.moveTo(i * s + s / 2, 4); g.lineTo(i * s + s - 4, h / 2); g.lineTo(i * s + s / 2, h - 4); g.lineTo(i * s + 4, h / 2); g.closePath(); g.fill()
+    g.beginPath(); g.moveTo(i * s + s / 2, 6); g.lineTo(i * s + s - 4, h / 2); g.lineTo(i * s + s / 2, h - 6); g.lineTo(i * s + 4, h / 2); g.closePath(); g.fill()
   }
   g.fillStyle = '#2546d8'; g.fillRect(0, 0, w, 5); g.fillRect(0, h - 5, w, 5)
 }, [rx, ry])
 
-const basinFloorTex = () => canvasTexture(256, 256, (g, w) => {
-  const r = rnd(3)
-  g.fillStyle = '#c9d6d8'; g.fillRect(0, 0, w, w)
-  const n = 8, s = w / n
-  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-    g.fillStyle = (i + j) % 2 ? hsl(190, 35, 70 + r() * 6) : hsl(40, 30, 90 + r() * 4)
-    g.fillRect(i * s + 1, j * s + 1, s - 2, s - 2)
-  }
-}, [3, 3])
-
 // ---------------------------------------------------------------- cour factice
+// boîte de margelle aux UV planaires (le motif court le long de la margelle, sans étirement)
+function rimGeometry(w, h, d, tile) {
+  const geo = new THREE.BoxGeometry(w, h, d)
+  const p = geo.attributes.position, n = geo.attributes.normal, uv = geo.attributes.uv
+  const alongX = w >= d
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i)
+    const along = alongX ? x : z, across = alongX ? z : x
+    if (Math.abs(n.getY(i)) > 0.5) uv.setXY(i, along / tile, across / (alongX ? d : w) + 0.5)
+    else if (Math.abs(alongX ? n.getZ(i) : n.getX(i)) > 0.5) uv.setXY(i, along / tile, y / h + 0.5)
+    else uv.setXY(i, across / tile, y / h + 0.5)
+  }
+  return geo
+}
+
 function buildCourtyard(scene) {
   const root = new THREE.Group()
   const basic = (opts) => new THREE.MeshBasicMaterial({ toneMapped: false, ...opts })
@@ -88,7 +102,7 @@ function buildCourtyard(scene) {
   const sky = new THREE.Mesh(new THREE.SphereGeometry(60, 32, 16), new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, toneMapped: false,
     vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: 'varying vec3 vD; void main(){ float h = clamp(vD.y,0.0,1.0); vec3 c = mix(vec3(0.93,0.94,0.92), vec3(0.62,0.76,0.9), pow(h,0.5)); gl_FragColor = vec4(c,1.0); }',
+    fragmentShader: 'varying vec3 vD; void main(){ float h = clamp(vD.y,0.0,1.0); vec3 c = mix(vec3(0.93,0.9,0.85), vec3(0.56,0.71,0.88), pow(h,0.5)); gl_FragColor = vec4(c,1.0); }',
   }))
   root.add(sky)
 
@@ -101,29 +115,32 @@ function buildCourtyard(scene) {
   rect(-3.6, POOL.x0 - m, -9.6, -0.45); rect(POOL.x1 + m, 3.6, -9.6, -0.45)
   rect(POOL.x0 - m, POOL.x1 + m, -9.6, POOL.z0 - m); rect(POOL.x0 - m, POOL.x1 + m, POOL.z1 + m, -0.45)
 
-  // bassin long : fond, parois, margelle
+  // bassin long : fond et parois bleu nuit, margelle zellige
   const pw = POOL.x1 - POOL.x0, pl = POOL.z1 - POOL.z0, pz = (POOL.z0 + POOL.z1) / 2
   add(new THREE.PlaneGeometry(pw, pl), basic({ map: poolTex(pw / 0.4, pl / 0.4) }), 0, -POOL.depth, pz, -Math.PI / 2)
   const wallH = POOL.depth + 0.08
-  const pwall = (len, x, z, ry) => add(new THREE.PlaneGeometry(len, wallH), basic({ map: poolTex(len / 0.4, wallH / 0.4, 0.8) }), x, -POOL.depth + wallH / 2, z, 0, ry)
+  const pwall = (len, x, z, ry) => add(new THREE.PlaneGeometry(len, wallH), basic({ map: poolTex(len / 0.4, wallH / 0.4, 0.85) }), x, -POOL.depth + wallH / 2, z, 0, ry)
   pwall(pw, 0, POOL.z0, 0); pwall(pw, 0, POOL.z1, Math.PI); pwall(pl, POOL.x0, pz, Math.PI / 2); pwall(pl, POOL.x1, pz, -Math.PI / 2)
-  const rim = (w, d, x, z) => add(new THREE.BoxGeometry(w, 0.1, d), basic({ map: zelligeTex(Math.max(w, d) / 0.5, 1) }), x, 0.03, z)
+  const zmat = basic({ map: zelligeTex(1, 1) })
+  const rim = (w, d, x, z) => add(rimGeometry(w, 0.1, d, 0.22), zmat, x, 0.03, z)
   rim(pw + 2 * m, m, 0, POOL.z0 - m / 2); rim(pw + 2 * m, m, 0, POOL.z1 + m / 2)
   rim(m, pl, POOL.x0 - m / 2, pz); rim(m, pl, POOL.x1 + m / 2, pz)
 
-  // bassin rond + vasque
+  // bassin rond + vasque (profils de build_majorelle.py)
   const F = FOUNTAIN
-  add(new THREE.CylinderGeometry(1.0, 1.0, 0.5, 72, 1, true), basic({ map: zelligeTex(10, 1) }), F.x, 0.25, F.z)
-  add(new THREE.CylinderGeometry(F.basinR, F.basinR, 0.5 - F.floorY, 72, 1, true), basic({ map: zelligeTex(9, 1), side: THREE.BackSide, color: 0xcfd6e6 }), F.x, (0.5 + F.floorY) / 2, F.z)
-  add(new THREE.RingGeometry(F.basinR, 1.03, 72), basic({ color: 0xf1ebdf }), F.x, 0.5, F.z, -Math.PI / 2)
-  add(new THREE.CircleGeometry(F.basinR, 48), basic({ map: basinFloorTex() }), F.x, F.floorY, F.z, -Math.PI / 2)
-  const stone = basic({ color: 0xe9d6ae })
+  add(new THREE.CylinderGeometry(1.0, 1.0, 0.44, 72, 1, true), basic({ map: zelligeTex(Math.round(TAU_ / 0.22), 1) }), F.x, 0.22, F.z)
+  add(new THREE.CylinderGeometry(0.88, 0.88, 0.5 - F.floorY, 72, 1, true), basic({ map: zelligeTex(25, 1), side: THREE.BackSide, color: 0xb9c3d8 }), F.x, (0.5 + F.floorY) / 2, F.z)
+  add(new THREE.RingGeometry(0.88, 1.03, 72), basic({ color: 0xf1ebdf }), F.x, 0.5, F.z, -Math.PI / 2)
+  add(new THREE.CylinderGeometry(1.03, 1.03, 0.06, 72, 1, true), basic({ color: 0xe9e2d4 }), F.x, 0.47, F.z)
+  add(new THREE.CircleGeometry(0.88, 48), basic({ map: poolTex(4, 4, 1.1) }), F.x, F.floorY, F.z, -Math.PI / 2)
+  const stone = basic({ color: 0xe9d9b8 })
   const lathe = (pts, mat) => add(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), 48), mat, F.x, 0, F.z)
-  lathe([[0.15, F.floorY], [0.13, 0.4], [0.12, 0.46], [0.075, 0.55], [0.07, 0.8], [0.085, 0.9], [0.06, 0.96], [0.12, 0.99]], stone)
-  lathe([[0.1, 0.95], [0.25, 0.99], [0.4, 1.06], [0.46, 1.12], [0.462, 1.14], [0.44, 1.14], [0.38, 1.1], [0.2, 1.08], [0.0, 1.075]],
-    basic({ color: 0xead8b0, side: THREE.DoubleSide }))
+  lathe([[0.16, 0.08], [0.13, 0.16], [0.075, 0.24], [0.07, 0.62], [0.11, 0.66], [0.075, 0.70], [0.07, 0.92], [0.12, 0.96]], stone)
+  lathe([[0.12, 0.96], [0.30, 1.03], [0.46, 1.10], [0.47, 1.14], [0.43, 1.145], [0.40, 1.125], [0.10, 1.11], [0.0, 1.11]],
+    basic({ color: 0xead9b6, side: THREE.DoubleSide }))
+  lathe([[0.0, 1.16], [0.035, 1.16], [0.05, 1.11], [0.0, 1.11]], stone)
 
-  // murs (bleu Majorelle) + couvertines + niche + alcôves (pour juger les reflets)
+  // murs (bleu Majorelle) + couvertines + niche + alcôves
   const blue = (k = 1) => basic({ color: new THREE.Color('#2546d8').multiplyScalar(k) })
   const yellow = basic({ color: 0xf2c94c })
   add(new THREE.PlaneGeometry(7.2, 4), blue(0.92), 0, 2, -9.6)
@@ -151,6 +168,49 @@ function buildCourtyard(scene) {
   scene.add(root)
   return root
 }
+// ---------------------------------------------------------------- mesure GPU du calque FX
+// Alterne des phases « FX visibles » / « FX masqués » et compare les temps GPU (EXT_disjoint_timer_query_webgl2).
+// Sans l'extension (Safari iOS), repli : temps CPU + gl.finish() (approximatif, indiqué comme tel).
+function createBench(renderer) {
+  const gl = renderer.getContext()
+  const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2')
+  const st = { phase: -1, frame: 0, on: [], off: [], pending: [], result: null, ext: !!ext }
+  const FR = 90
+  return {
+    get result() { return st.result },
+    get running() { return st.phase >= 0 },
+    start() { st.phase = 0; st.frame = 0; st.on = []; st.off = []; st.result = null },
+    // à appeler autour de renderer.render ; renvoie la visibilité voulue pour le groupe FX
+    before(group) {
+      if (st.phase < 0) return
+      group.visible = st.phase === 0 || st.phase === 2
+      if (ext) { const q = gl.createQuery(); gl.beginQuery(ext.TIME_ELAPSED_EXT, q); st.cur = q } else st.t0 = performance.now()
+    },
+    after(group) {
+      if (st.phase < 0) return
+      const bucket = group.visible ? st.on : st.off
+      if (ext) {
+        gl.endQuery(ext.TIME_ELAPSED_EXT)
+        st.pending.push({ q: st.cur, bucket })
+      } else { gl.finish(); bucket.push(performance.now() - st.t0) }
+      // relève des requêtes terminées
+      st.pending = st.pending.filter((p) => {
+        if (!gl.getQueryParameter(p.q, gl.QUERY_RESULT_AVAILABLE)) return true
+        if (!gl.getParameter(ext.GPU_DISJOINT_EXT)) p.bucket.push(gl.getQueryParameter(p.q, gl.QUERY_RESULT) / 1e6)
+        gl.deleteQuery(p.q)
+        return false
+      })
+      if (++st.frame >= FR) { st.frame = 0; st.phase++ }
+      if (st.phase > 3) {
+        const med = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : NaN }
+        const on = med(st.on), off = med(st.off)
+        st.result = { fx: on - off, on, off, gpu: st.ext, samples: st.on.length + st.off.length }
+        st.phase = -1
+        group.visible = true
+      }
+    },
+  }
+}
 
 // ---------------------------------------------------------------- composant
 export default function MajorelleFxTest() {
@@ -159,6 +219,7 @@ export default function MajorelleFxTest() {
   const [energy, setEnergyUI] = useState(0.8)
   const [quality, setQuality] = useState('high')
   const [stats, setStats] = useState('')
+  const [bench, setBench] = useState('')
   const [showUi] = useState(() => new URLSearchParams(window.location.search).get('ui') !== '0')
 
   useEffect(() => {
@@ -168,10 +229,11 @@ export default function MajorelleFxTest() {
     const qs = new URLSearchParams(window.location.search)
     const q0 = qs.get('q') || 'high'
     const e0 = qs.has('energy') ? Number(qs.get('energy')) : 0.8
+    const probeMode = qs.get('probe') || '1'
     setQuality(q0); setEnergyUI(e0)
 
     const renderer = new THREE.WebGLRenderer({ antialias: true })
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.setPixelRatio(qs.has('dpr') ? Number(qs.get('dpr')) : Math.min(window.devicePixelRatio, 2))
     renderer.setSize(mount.clientWidth, mount.clientHeight)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.NeutralToneMapping
@@ -193,14 +255,26 @@ export default function MajorelleFxTest() {
     scene.add(garden)
 
     let fx = null
+    let probes = null
+    const benchTool = createBench(renderer)
     const makeFx = (quality) => {
       if (fx) fx.dispose()
-      fx = createGardenFX({ parent: garden, pool: POOL, fountain: FOUNTAIN, sunDir: SUN, quality, energy: e0 })
+      fx = createGardenFX({ parent: garden, pool: POOL, fountain: FOUNTAIN, sunDir: SUN, quality, energy: e0, reflectionCube: probes })
+      if (probeMode === 'live') fx.captureReflections(renderer, scene)
       apiRef.current = { ...apiRef.current, fx }
-      window.__mj = { fx, camera, controls, renderer, scene, setView }
+      if (window.__mj) publish()
     }
-    makeFx(q0)
-    apiRef.current = { fx, setView, makeFx }
+    const publish = () => { window.__mj = { fx, camera, controls, renderer, scene, setView, bench: benchTool, makeFx } }
+    // les sondes Blender sont chargées avant d'exposer window.__mj (captures d'écran reproductibles)
+    const ready = probeMode === '1' ? loadReflectionProbes('/majorelle/fx/').catch(() => null) : Promise.resolve(null)
+    ready.then((p) => {
+      if (disposed) return
+      probes = p && p.pool ? p : null
+      makeFx(q0)
+      apiRef.current = { fx, setView, makeFx, bench: benchTool }
+      publish()
+      if (qs.get('bench') === '1') setTimeout(() => benchTool.start(), 1500)
+    })
 
     // tap sur l'eau → splash (on ignore les glisser d'orbite)
     const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), hit = new THREE.Vector3()
@@ -208,7 +282,7 @@ export default function MajorelleFxTest() {
     const el = renderer.domElement
     const onDown = (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() } }
     const onUp = (e) => {
-      if (!down) return
+      if (!down || !fx) return
       const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y)
       if (moved < 6 && performance.now() - down.t < 400) {
         const r = el.getBoundingClientRect()
@@ -229,13 +303,25 @@ export default function MajorelleFxTest() {
       if (disposed) return
       raf = requestAnimationFrame(tick)
       const now = performance.now(); const dt = Math.min((now - last) / 1000, 0.05); last = now
-      fx.update(dt, camera)
       controls.update()
+      if (fx) {
+        fx.update(dt, camera)
+        benchTool.before(fx.group)
+      }
       renderer.render(scene, camera)
+      if (fx) {
+        benchTool.after(fx.group)
+        const b = benchTool.result
+        if (b && !benchTool.reported) {
+          benchTool.reported = true
+          setBench(`FX ${b.fx.toFixed(2)} ms ${b.gpu ? 'GPU' : '(CPU+finish, approx.)'} · image ${b.on.toFixed(2)} / sans FX ${b.off.toFixed(2)} ms · DPR ${renderer.getPixelRatio()} · ${renderer.domElement.width}×${renderer.domElement.height}`)
+          window.__mjBench = b
+        }
+      }
       acc += dt; frames++
-      if (acc > 0.5) {
+      if (acc > 0.5 && fx) {
         const s = fx.stats()
-        setStats(`FX : ${s.drawCalls} draw calls · ${(s.triangles / 1000).toFixed(1)} k tris   |   scène : ${renderer.info.render.calls} calls · ${Math.round(frames / acc)} fps`)
+        setStats(`FX : ${s.drawCalls} draw calls · ${(s.triangles / 1000).toFixed(1)} k tris · ${s.koi} koï · ${s.pads} nénuphars · ${s.petals} bractées · ${s.droplets} gouttes   |   scène : ${renderer.info.render.calls} calls · ${Math.round(frames / acc)} fps`)
         acc = 0; frames = 0
       }
     }
@@ -253,7 +339,7 @@ export default function MajorelleFxTest() {
   }, [])
 
   const ui = {
-    panel: { position: 'absolute', left: 16, top: 16, right: 16, maxWidth: 420, padding: '14px 16px', background: 'rgba(10,10,10,0.55)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', color: '#EFE9DC', fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 11, letterSpacing: '0.12em', borderTop: '1px solid #C9A45C' },
+    panel: { position: 'absolute', left: 16, top: 16, right: 16, maxWidth: 440, padding: '14px 16px', background: 'rgba(10,10,10,0.55)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', color: '#EFE9DC', fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 11, letterSpacing: '0.12em', borderTop: '1px solid #C9A45C' },
     title: { fontFamily: "'Didot', 'Bodoni MT', 'Playfair Display', Georgia, serif", fontSize: 18, letterSpacing: '0.08em', marginBottom: 10, color: '#D8BE86' },
     btn: { background: 'transparent', color: '#EFE9DC', border: '1px solid rgba(201,164,92,0.7)', padding: '6px 10px', marginRight: 6, marginBottom: 6, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer' },
   }
@@ -269,6 +355,7 @@ export default function MajorelleFxTest() {
             const a = api(); if (!a?.fx) return
             a.fx.splash(new THREE.Vector3(-0.5 + Math.random(), 0, -2.4 - Math.random() * 3))
           }}>splash</button>
+          <button style={ui.btn} onClick={() => { const a = api(); if (a?.bench) { a.bench.reported = false; a.bench.start(); setBench('mesure en cours…') } }}>mesure GPU</button>
         </div>
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 0' }}>
           <span style={{ textTransform: 'uppercase', letterSpacing: '0.2em', fontSize: 10 }}>Fontaine</span>
@@ -281,6 +368,7 @@ export default function MajorelleFxTest() {
           ))}
         </div>
         <div style={{ opacity: 0.8, fontSize: 10, letterSpacing: '0.06em' }}>{stats}</div>
+        {bench && <div style={{ opacity: 0.9, fontSize: 10, letterSpacing: '0.06em', marginTop: 4, color: '#D8BE86' }}>{bench}</div>}
         <div style={{ opacity: 0.55, fontSize: 10, letterSpacing: '0.06em', marginTop: 4 }}>Touchez l'eau pour un splash · glisser = orbite</div>
       </div>}
     </div>
